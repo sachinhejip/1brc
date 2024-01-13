@@ -19,5 +19,5 @@
 # source "$HOME/.sdkman/bin/sdkman-init.sh"
 # sdk use java 21.0.1-graal 1>&2
 
-JAVA_OPTS=""
-/home/sachin/installs/jbang-0.114.0/bin/jbang $JAVA_OPTS --javaagent=ap-loader@jvm-profiling-tools/ap-loader=start,event=cpu,file=profile.html src/main/java/dev/morling/onebrc/CalculateAverage_sachinhejip.java
+JAVA_OPTS="-Xmx2G"
+/home/sachin/installs/jbang-0.114.0/bin/jbang -R $JAVA_OPTS --javaagent=ap-loader@jvm-profiling-tools/ap-loader=start,event=cpu,file=profile.html src/main/java/dev/morling/onebrc/CalculateAverage_sachinhejip.java
