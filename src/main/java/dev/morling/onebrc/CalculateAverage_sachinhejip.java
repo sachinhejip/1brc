@@ -52,11 +52,12 @@ public class CalculateAverage_sachinhejip {
      * * Correct response : 0.18.42 (2G Xmx)
      * * Correct response without Xmx : 0.18.69
      * * TreeMap : 0.20.63 (2G Xmx)
-     *
+     * * Node instead of TreeMap : 0.18.7
+     *  * calculating ints in loop : 0.20 :(
+     *  * buffer for name : 0.19.8
      *
      *
      * Ideas:
-     * - Create ints in the loop
      * - Large memory allocation in Java 17
      */
     private static final String FILE = "./measurements.txt";
@@ -64,7 +65,7 @@ public class CalculateAverage_sachinhejip {
     // private static final String FILE = "/home/sachin/dev_work/java/1brc/src/test/resources/samples/measurements-20.txt";
     // private static final String FILE = "./test.txt";
     // public static final int MAX_READ = 20000;
-    // public static final String MARKED_CITY = "Abha";
+    public static final String MARKED_CITY = "Abha";
 
     private static List<Shard> shards = new ArrayList<>();
 
@@ -76,9 +77,9 @@ public class CalculateAverage_sachinhejip {
         private final int length;
 
         private boolean isDone = false;
-        // private Node node = new Node((byte) -1); // root
+        private Node node = new Node((byte) -1); // root
 
-        private TreeMap<String, Record> map = new TreeMap<>(Comparator.comparing(k -> k));
+        // private TreeMap<String, Record> map = new TreeMap<>(Comparator.comparing(k -> k));
 
         public Shard(String name, RandomAccessFile file, long start, int position, int length) {
             this.name = name;
@@ -101,6 +102,7 @@ public class CalculateAverage_sachinhejip {
 
         @Override
         public void run() {
+            byte[] recordNameBytes = new byte[2000];
             try {
                 MappedByteBuffer buf = file.getChannel().map(FileChannel.MapMode.READ_ONLY, start, length);
                 if (start > 0) {
@@ -117,11 +119,14 @@ public class CalculateAverage_sachinhejip {
                 }
                 int recordStart = buf.position();
                 int nameEnd = -1;
-                int nStart = -1;
-                int nEnd = -1;
-                int fStart = -1;
+                // int nStart = -1;
+                // int nEnd = -1;
+                // int fStart = -1;
+                int n = 0;
+                int f = 0;
+                int mult = 1;
                 STATE state = STATE.IN_NAME;
-                // Node current = node;
+                Node current = node;
                 while (buf.hasRemaining()) {
                     byte b = buf.get();
                     // System.out.print(b + ",");
@@ -130,41 +135,51 @@ public class CalculateAverage_sachinhejip {
                         if (state != STATE.IN_F) {
                             throw new IllegalArgumentException();
                         }
-                        if (nameEnd == -1 || nStart == -1 || nEnd == -1 || fStart == -1) {
-                            throw new RuntimeException();
-                        }
+                        // if (nameEnd == -1 || nStart == -1 || nEnd == -1 || fStart == -1) {
+                        // throw new RuntimeException();
+                        // }
                         // current.setRecord(buf, recordStart, nameEnd, nStart, nEnd, fStart, buf.position() - 1);
-                        byte[] bytes = new byte[nameEnd - recordStart];
-                        buf.get(recordStart, bytes, 0, bytes.length);
-                        String recordName = new String(bytes);
-                        Record mapRecord = map.get(recordName);
-                        if (mapRecord != null) {
-                            mapRecord.update(buf, nStart, nEnd, fStart, buf.position() - 1);
-                        }
-                        else {
-                            Record record = new Record(recordName);
-                            record.update(buf, nStart, nEnd, fStart, buf.position() - 1);
-                            map.put(record.name, record);
-                        }
-                        // if (record.name.equals(MARKED_CITY)) {
+                        // byte[] bytes = new byte[nameEnd - recordStart];
+                        // buf.get(recordStart, bytes, 0, bytes.length);
+                        String recordName = new String(recordNameBytes, 0, nameEnd - recordStart);
+                        current.setRecord(recordName, mult * n, mult * f);
+                        // byte[] bytes = new byte[nameEnd - recordStart];
+                        // buf.get(recordStart, bytes, 0, bytes.length);
+                        // String recordName = new String(bytes);
+                        // Record mapRecord = map.get(recordName);
+                        // if (mapRecord != null) {
+                        // mapRecord.update(buf, nStart, nEnd, fStart, buf.position() - 1);
+                        // }
+                        // else {
+                        // Record record = new Record(recordName);
+                        // record.update(buf, nStart, nEnd, fStart, buf.position() - 1);
+                        // map.put(record.name, record);
+                        // }
+                        // if (recordName.equals(MARKED_CITY)) {
                         // byte[] recordBytes = new byte[buf.position() - 1 - recordStart];
                         // buf.get(recordStart, recordBytes, 0, recordBytes.length);
-                        // System.out.println("record = " + record + " for recordBytes = " + new String(recordBytes));
+                        // System.out.println("record = " + current.record + " n,f " + n + "." + f + " for recordBytes = " + new String(recordBytes));
                         // }
                         // records.update(name, buf, recordStart, nameEnd, nStart, nEnd, fStart, buf.position() - 1);
                         // byte[] name = new byte[nameEnd - recordStart];
                         // buf.get(recordStart, name, 0, name.length);
                         recordStart = buf.position();
-                        nameEnd = nStart = nEnd = fStart = -1;
+                        nameEnd = -1;
+                        // nStart = -1;
+                        // nEnd = -1;
+                        // fStart = -1;
+                        n = 0;
+                        f = 0;
+                        mult = 1;
                         state = STATE.IN_NAME;
                         // System.out.println(new String(name) + " > " + current.record);
-                        // current = node;
+                        current = node;
                         continue;
                     }
                     else if (b == ';') {
                         if (state == STATE.IN_NAME) {
                             nameEnd = buf.position() - 1;
-                            nStart = buf.position();
+                            // nStart = buf.position();
                             state = STATE.IN_N;
                             continue;
                         }
@@ -174,15 +189,27 @@ public class CalculateAverage_sachinhejip {
                     }
                     else if (b == '.') {
                         if (state == STATE.IN_N) {
-                            nEnd = buf.position() - 1;
-                            fStart = buf.position();
+                            // nEnd = buf.position() - 1;
+                            // fStart = buf.position();
                             state = STATE.IN_F;
                             continue;
                         }
                     }
-                    // if (state == STATE.IN_NAME) {
-                    // current = current.update(b);
-                    // }
+                    if (state == STATE.IN_N) {
+                        if (b == '-') {
+                            mult = -1;
+                        }
+                        else {
+                            n = n * 10 + (b - '0');
+                        }
+                    }
+                    if (state == STATE.IN_F) {
+                        f = b - '0';
+                    }
+                    if (state == STATE.IN_NAME) {
+                        recordNameBytes[buf.position() - 1 - recordStart] = b;
+                        current = current.update(b);
+                    }
                 }
             }
             catch (IOException e) {
@@ -193,8 +220,10 @@ public class CalculateAverage_sachinhejip {
     }
 
     public static void main(String[] args) throws IOException {
-        TreeMap<String, Record> obj = readUsingThreadsAndMemoryMappedFile();
-        printResults(obj, System.out);
+        // TreeMap<String, Record> obj = readUsingThreadsAndMemoryMappedFile();
+        Node obj = readUsingThreadsAndMemoryMappedFile();
+        obj.printResults(System.out);
+        // printResults(obj, System.out);
     }
 
     private static void printResults(TreeMap<String, Record> map, PrintStream out) {
@@ -211,7 +240,8 @@ public class CalculateAverage_sachinhejip {
         out.print("}");
     }
 
-    private static TreeMap<String, Record> readUsingThreadsAndMemoryMappedFile() throws IOException {
+    private static Node readUsingThreadsAndMemoryMappedFile() throws IOException {
+        // private static TreeMap<String, Record> readUsingThreadsAndMemoryMappedFile() throws IOException {
         var OVERLAP = 200;
         try (RandomAccessFile f = new RandomAccessFile(FILE, "r")) {
             FileChannel channel = f.getChannel();
@@ -248,38 +278,38 @@ public class CalculateAverage_sachinhejip {
             }
         }
 
-        // Node node = shards.get(0).node;
-        // for (Shard shard : shards) {
-        // node.merge(shard.node);
-        // }
-        // return node;
-        TreeMap<String, Record> map = shards.get(0).map;
-        for (int i = 1; i < shards.size(); i++) {
-            TreeMap<String, Record> shardMap = shards.get(i).map;
-            for (String s : shardMap.keySet()) {
-                Record shardRecord = shardMap.get(s);
-                // if (map.computeIfPresent(s, (k, r) -> r.update(shardRecord)) == null) {
-                // map.put(s, shardRecord);
-                // }
-                // if (s.equals(MARKED_CITY)) {
-                // System.out.println("shardRecord = " + shardRecord);
-                // }
-                if (map.containsKey(s)) {
-                    Record mapRecord = map.get(s);
-                    // if (s.equals(MARKED_CITY)) {
-                    // System.out.println("mapRecord = " + shardRecord);
-                    // }
-                    mapRecord.update(shardRecord);
-                    // if (s.equals(MARKED_CITY)) {
-                    // System.out.println("Map's updated mapRecord = " + mapRecord);
-                    // }
-                }
-                else {
-                    map.put(s, shardRecord);
-                }
-            }
+        Node node = shards.get(0).node;
+        for (Shard shard : shards) {
+            node.merge(shard.node);
         }
-        return map;
+        return node;
+        // TreeMap<String, Record> map = shards.get(0).map;
+        // for (int i = 1; i < shards.size(); i++) {
+        // TreeMap<String, Record> shardMap = shards.get(i).map;
+        // for (String s : shardMap.keySet()) {
+        // Record shardRecord = shardMap.get(s);
+        // // if (map.computeIfPresent(s, (k, r) -> r.update(shardRecord)) == null) {
+        // // map.put(s, shardRecord);
+        // // }
+        // // if (s.equals(MARKED_CITY)) {
+        // // System.out.println("shardRecord = " + shardRecord);
+        // // }
+        // if (map.containsKey(s)) {
+        // Record mapRecord = map.get(s);
+        // // if (s.equals(MARKED_CITY)) {
+        // // System.out.println("mapRecord = " + shardRecord);
+        // // }
+        // mapRecord.update(shardRecord);
+        // // if (s.equals(MARKED_CITY)) {
+        // // System.out.println("Map's updated mapRecord = " + mapRecord);
+        // // }
+        // }
+        // else {
+        // map.put(s, shardRecord);
+        // }
+        // }
+        // }
+        // return map;
     }
 
     private static class Node {
@@ -303,8 +333,15 @@ public class CalculateAverage_sachinhejip {
             return "Node : " + record;
         }
 
+        void setRecord(String name, int n, int f) {
+            if (record == null) {
+                record = new Record(name);
+            }
+            record.update(n, f);
+        }
+
         void setRecord(MappedByteBuffer buf, int nameStart, int nameEnd, int nStart, int nEnd, int fStart, int end) {
-            boolean printRecord = false;
+            // boolean printRecord = false;
             if (record == null) {
                 byte[] b = new byte[nameEnd - nameStart];
                 buf.get(nameStart, b, 0, b.length);
@@ -417,12 +454,29 @@ public class CalculateAverage_sachinhejip {
         int maxN = Integer.MIN_VALUE;
         int maxF = -9;
 
+        public Record() {
+        }
+
         public Record(String name) {
             this.name = name;
         }
 
-        private Record update(ByteBuffer buf, int numStart, int numEnd, int fStart, int fEnd) {
+        private Record update(int n, int f) {
             count += 1;
+            sumN = sumN + n;
+            sumF = sumF + f;
+            if (n < minN || (n == minN && f < minF)) {
+                minN = n;
+                minF = f;
+            }
+            if (n > maxN || (n == maxN && f > maxF)) {
+                maxN = n;
+                maxF = f;
+            }
+            return this;
+        }
+
+        private Record update(ByteBuffer buf, int numStart, int numEnd, int fStart, int fEnd) {
             int mult = 1;
             if (buf.get(numStart) == '-') {
                 mult = -1;
@@ -437,23 +491,7 @@ public class CalculateAverage_sachinhejip {
             int f = buf.get(fStart) - '0';
             n = mult * n;
             f = mult * f;
-            sumN = sumN + n;
-            sumF = sumF + f;
-            if (n < minN) {
-                minN = n;
-                minF = f;
-            }
-            else if (n == minN && f < minF) {
-                minF = f;
-            }
-            if (n > maxN) {
-                maxN = n;
-                maxF = f;
-            }
-            else if (n == maxN && f > maxF) {
-                maxF = f;
-            }
-            return this;
+            return update(n, f);
         }
 
         private Record update(Record record) {
